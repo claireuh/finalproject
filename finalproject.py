@@ -26,11 +26,11 @@ def get_reddit_stocks():
     data_list = json.loads(data)
     return data_list
 
-def wsb_into_db(cur, conn, data):
-    cur.execute("DROP TABLE IF EXISTS Species")
-    cur.execute("CREATE TABLE wsb (name TEXT, comments INTEGER)")
-    for s in data:
-        cur.execute("INSERT INTO wsb (name,comments) VALUES (?,?)",(s['ticker'],s['no_of_comments']))
+def wsb_into_db(cur, conn, list):
+    cur.execute("DROP TABLE IF EXISTS wsb")
+    cur.execute("CREATE TABLE wsb (name TEXT, sentiment TEXT, sentimentscore INTEGER, comments INTEGER)")
+    for s in list:
+        cur.execute("INSERT INTO wsb (name,sentiment,sentimentscore,comments) VALUES (?,?,?,?)",(s['ticker'],s['sentiment'],s['sentiment_score'],s['no_of_comments']))
     conn.commit()
 
 
