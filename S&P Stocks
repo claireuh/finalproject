@@ -22,6 +22,10 @@ def get_sstock():
     data_list = json.loads(data)
     return data_list
 
+def get_data(data_list):
+    pass
+
+
 
 
 
