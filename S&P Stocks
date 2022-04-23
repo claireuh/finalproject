@@ -16,14 +16,27 @@ def setUpDatabase(db_name):
 #f346c59968a4bc43d890eaacf2a45895
 
 def get_sstock():
-    url = 'http://api.marketstack.com/v1/eod?access_key=f346c59968a4bc43d890eaacf2a45895&symbols=AAPL'
+    url = 'http://api.marketstack.com/v1/eod?access_key=f346c59968a4bc43d890eaacf2a45895&symbols=VOO'
     response = requests.get(url)
     data = response.text
     data_list = json.loads(data)
     return data_list
 
-def get_data(data_list):
-    pass
+
+
+#Open
+#Close
+#Volume
+#Date
+
+
+def get_data_to_databse(cur,conn,data_list):
+    cur.execute("DROP TABLE IF EXISTS voo")
+    cur.execute("CREATE TABLE voo (open REAL, close REAL, volume INTEGER, date TEXT)")
+    for i in data_list['data']:
+        cur.execute("INSERT INTO voo (open,close,volume,date) VALUES (?,?,?,?)",(i['open'],i['close'],i['volume'],i['date']))
+    conn.commit()
+
 
 
 
@@ -31,7 +44,10 @@ def get_data(data_list):
 
 
 def main():
-    print(get_sstock())
+    cur, conn = setUpDatabase('voo.db')
+    get_sstock()
+    data_list = get_sstock()
+    print(get_data_to_databse(cur,conn,data_list))
 
     
     
