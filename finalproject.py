@@ -24,7 +24,7 @@ def get_reddit_stocks():
     response = requests.get(url)
     data = response.text
     data_list = json.loads(data)
-    return data_list
+    return data_list[:25]
 
 def wsb_into_db(cur, conn, list):
     cur.execute("DROP TABLE IF EXISTS wsb")
@@ -34,13 +34,57 @@ def wsb_into_db(cur, conn, list):
     conn.commit()
 
 
+#S&P api
+
+#5dbe879de68dbe57111390b991d08988
+
+def get_sstock():
+    url = 'http://api.marketstack.com/v1/eod?access_key=5dbe879de68dbe57111390b991d08988&symbols=VOO&limit=25'
+    response = requests.get(url)
+    data = response.text
+    data_list = json.loads(data)
+    limited_data = {}
+    i = 0
+    for d in data_list:
+        if i < 25:
+            limited_data[d] = data_list[d]
+            i += 1
+    return limited_data
+
+
+#Open
+#Close
+#Volume
+#Date
+
+
+def get_data_to_databse(cur,conn,data_list):
+    cur.execute("DROP TABLE IF EXISTS voo")
+    cur.execute("CREATE TABLE voo (open REAL, close REAL, volume INTEGER, date TEXT)")
+    for i in data_list['data']:
+        cur.execute("INSERT INTO voo (open,close,volume,date) VALUES (?,?,?,?)",(i['open'],i['close'],i['volume'],i['date']))
+    conn.commit()
+
+
+
+
+
+
+
+
+
+
 def main():
     # SETUP DATABASE AND TABLE
     cur, conn = setUpDatabase('stocks.db')
-    data = get_reddit_stocks()
-    wsb_into_db(cur, conn, data)
+   
+    #wsb
+    wsbdata = get_reddit_stocks()
+    wsb_into_db(cur, conn, wsbdata)
 
-    
+    #s&p
+    data_list = get_sstock()
+    get_data_to_databse(cur,conn,data_list)
     
 if __name__ == "__main__":
     main()
