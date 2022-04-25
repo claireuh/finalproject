@@ -135,7 +135,6 @@ def hotstocks():
                 ORDER BY market_cap DESC, volume_avg_10d_percent_diff DESC 
                 LIMIT 25"""
     
-    # OFFSET 25 ROWS FETCH NEXT 25 ROWS ONLY
     headers = {
         "content-type": "text/plain",
         "X-RapidAPI-Host": "hotstoks-sql-finance.p.rapidapi.com",
@@ -155,6 +154,54 @@ def put_data_in_database(cur, conn, response):
     
 
 
+def wsbdata(cur, conn):
+    cur.execute('SELECT wsbtoday.name, wsbmonthago.comments, wsbtoday.comments FROM wsbmonthago JOIN wsbtoday ON wsbmonthago.name = wsbtoday.name')
+    sentimentscore = cur.fetchall()
+    print('wsb1')
+    print(sentimentscore)
+
+
+
+#getting the names of stocks that were bullish 1 month ago
+def wsbdata2(cur, conn):
+    cur.execute('SELECT wsbmonthago.name FROM wsbmonthago WHERE sentimentscore > 0')
+    data = cur.fetchall()
+    print("Stocks that were bullish 1 month ago in WSB")
+    print(data)
+    print()
+
+
+
+def hotstockdata(cur, conn):
+    cur.execute("""SELECT hotstocks.rating, hotstocks.percentchangemonth FROM hotstocks WHERE rating LIKE '%Buy%'""")
+    data_buy = cur.fetchall()
+    print("hotstocks")
+    print(data_buy)
+
+def voodata(cur, conn):
+    cur.execute("""SELECT AVG(close) FROM voo""")
+    avg_close = cur.fetchall()
+    avg_close = avg_close[0][0]
+    print(avg_close)
+
+    #Finds the volume for when price is below the average closing price
+    cur.execute(f"""SELECT volume FROM voo WHERE close > {avg_close} """)
+    volume_above2 = cur.fetchall()
+    print(volume_above2)
+
+    #Finds the volume for when price is above the average closing price 
+    cur.execute(f"""SELECT volume, close FROM voo WHERE close < {avg_close} """)
+    volume_below2 = cur.fetchall()
+    print(volume_below2)
+
+
+def write_csv(data_dict, file_name):
+    path = os.path.dirname(os.path.abspath(__file__))
+    f = open(path + "/" + file_name, "w")
+    f.write("""We are able to use SQL select statements to calculate important indicators of VOO (Vanguard 500).The indicator we 
+    where able to calculate was the volume traded when the price was below and above the average closing price. We were able to calculate the average volume for when the price was 
+    below the average closing price, and calculate the average volume when the price was above the average closing price. When doing """)
+    
 
 
 def main():
@@ -179,10 +226,14 @@ def main():
     #getting the data
     cur.execute("DROP TABLE IF EXISTS hotstocks")
     response = hotstocks()
-    print(response)
+    # print(response)
     put_data_in_database(cur, conn, response)
-    
 
-    
+
+    #calling the data
+    hotstockdata(cur,conn)
+    wsbdata2(cur,conn)
+    wsbdata(cur, conn)
+    voodata(cur,conn)
 if __name__ == "__main__":
     main()
