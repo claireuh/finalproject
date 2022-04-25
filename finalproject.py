@@ -8,6 +8,8 @@ import sqlite3
 import unittest
 import numpy as np
 import json
+from xml.sax import parseString
+
 
 
 
@@ -27,23 +29,15 @@ def get_reddit_stocks(date):
     return data_list[:25]
 
 def wsb_into_db(cur, conn, list, name):
-    cur.execute(f"DROP TABLE IF EXISTS {name}")
-    cur.execute(f"CREATE TABLE {name} (name TEXT, sentiment TEXT, sentimentscore INTEGER, comments INTEGER)")
+    cur.execute(f"CREATE TABLE IF NOT EXISTS {name} (name TEXT UNIQUE, sentiment TEXT, sentimentscore INTEGER, comments INTEGER)")
     for s in list:
-        cur.execute(f"INSERT INTO {name} (name,sentiment,sentimentscore,comments) VALUES (?,?,?,?)",(s['ticker'],s['sentiment'],s['sentiment_score'],s['no_of_comments']))
+        cur.execute(f"INSERT OR IGNORE INTO {name} (name,sentiment,sentimentscore,comments) VALUES (?,?,?,?)",(s['ticker'],s['sentiment'],s['sentiment_score'],s['no_of_comments']))
     conn.commit()
 
 
 #S&P api
 
 #5dbe879de68dbe57111390b991d08988
-
-def get_sstock():
-    url = 'http://api.marketstack.com/v1/eod?access_key=5dbe879de68dbe57111390b991d08988&symbols=VOO&limit=25'
-    response = requests.get(url)
-    data = response.text
-    data_list = json.loads(data)
-    return data_list
 
 def get_sstock():
     url = 'http://api.marketstack.com/v1/eod?access_key=5dbe879de68dbe57111390b991d08988&symbols=VOO&limit=25'
@@ -59,12 +53,11 @@ def get_sstock():
 
 
 def get_data_to_databse(cur,conn,data_list):
-    cur.execute("DROP TABLE IF EXISTS voo")
-    cur.execute("CREATE TABLE voo (symbol TEXT, open REAL, close REAL, volume INTEGER, date TEXT)")
+    cur.execute("CREATE TABLE IF NOT EXISTS voo (open REAL, close REAL, volume INTEGER, date TEXT)")
     for i in data_list['data']:
-        cur.execute("INSERT INTO voo (symbol,open,close,volume,date) VALUES (?,?,?,?,?)",(i['symbol'],i['open'],i['close'],i['volume'],i['date']))
+        cur.execute("INSERT OR IGNORE INTO voo (open,close,volume,date) VALUES (?,?,?,?)",(i['symbol'],i['open'],i['close'],i['volume'],i['date']))
     conn.commit()
-
+    
 
 #VOO Calculation
 #SWITCH 410 TO THE {AVG_CLOSE} VARIABLE
@@ -74,12 +67,12 @@ def find_average_volume_from_high_price_low_price(cur,conn):
     avg_close = cur.fetchall()
 
     #Finds the average volume for when price is below the average closing price
-    cur.execute("""SELECT AVG(volume) FROM voo WHERE close > 410""")
+    cur.execute("""SELECT AVG(volume) FROM voo WHERE close > '{avg_close}' """)
     avg_volume_above = cur.fetchall()
     print(avg_volume_above)
 
     #Finds the average volume for when price is above the average closing price 
-    cur.execute("""SELECT AVG(volume) FROM voo WHERE close < 410""")
+    cur.execute("""SELECT AVG(volume) FROM voo WHERE close < '{avg_close}' """)
     avg_volume_below = cur.fetchall()
     print(avg_volume_below)
     
@@ -91,11 +84,11 @@ def visualizations_voo(cur,conn):
     avg_close = cur.fetchall()
 
     #Finds the volume for when price is below the average closing price
-    cur.execute("""SELECT volume FROM voo WHERE close > 410""")
+    cur.execute("""SELECT volume FROM voo WHERE close > '{avg_close}' """)
     volume_above2 = cur.fetchall()
 
     #Finds the volume for when price is above the average closing price 
-    cur.execute("""SELECT volume FROM voo WHERE close < 410""")
+    cur.execute("""SELECT volume FROM voo WHERE close < '{avg_close}' """)
     volume_below2 = cur.fetchall()
 
     volume_above = []
@@ -127,6 +120,39 @@ def visualizations_voo(cur,conn):
 
 
 
+#analyst_rating
+#price_change_percent_1d
+#price_change_percent_1m
+#symbol
+
+
+def hotstocks():
+    url = "https://hotstoks-sql-finance.p.rapidapi.com/query"
+    
+    payload = """SELECT * FROM stocks
+                WHERE price <= 10 
+                AND volume_avg_10d_percent_diff > 20
+                ORDER BY market_cap DESC, volume_avg_10d_percent_diff DESC 
+                LIMIT 25"""
+    
+    # OFFSET 25 ROWS FETCH NEXT 25 ROWS ONLY
+    headers = {
+        "content-type": "text/plain",
+        "X-RapidAPI-Host": "hotstoks-sql-finance.p.rapidapi.com",
+        "X-RapidAPI-Key": "15d6f5c74cmsh147566a8e4a1e04p138f5djsn688bfbde4bea"
+    }
+
+    response = requests.request("POST", url, data=payload, headers=headers)
+    response = response.text
+    response = json.loads(response)
+    return response
+
+def put_data_in_database(cur, conn, response):
+    cur.execute("CREATE TABLE IF NOT EXISTS hotstocks (rating TEXT, percentchangeday TEXT, percentchangemonth TEXT, symbol TEXT UNIQUE)")
+    for i in response['results']:
+        cur.execute("INSERT OR IGNORE INTO hotstocks (rating,percentchangeday,percentchangemonth,symbol) VALUES (?,?,?,?)",(i['analyst_rating'], i['price_change_percent_1d'], i['price_change_percent_1m'], i['symbol']))
+    conn.commit()
+    
 
 
 
@@ -135,20 +161,28 @@ def main():
     # SETUP DATABASE AND TABLE
     cur, conn = setUpDatabase('stocks.db')
    
-    # #wsb
+    #wsb
     wsbtoday = get_reddit_stocks('2022-04-22')
     wsbmonthago = get_reddit_stocks('2022-03-22')
     wsb_into_db(cur, conn, wsbtoday, 'wsbtoday')
     wsb_into_db(cur, conn, wsbmonthago, 'wsbmonthago')
-    cur.execute(f"DROP TABLE IF EXISTS wsb")
-    cur.execute(f"DROP TABLE IF EXISTS {wsbtoday}")
-    cur.execute(f"DROP TABLE IF EXISTS {wsbmonthago}")
+    
     
     # #s&p
     # data_list = get_sstock()
     # get_data_to_databse(cur,conn,data_list)
-    print(find_average_volume_from_high_price_low_price(cur,conn))
-    print(visualizations_voo(cur,conn))
+    # print(find_average_volume_from_high_price_low_price(cur,conn))
+    # print(visualizations_voo(cur,conn))
+
+    #hotstocks data
+
+    #getting the data
+    cur.execute("DROP TABLE IF EXISTS hotstocks")
+    response = hotstocks()
+    print(response)
+    put_data_in_database(cur, conn, response)
+    
+
     
 if __name__ == "__main__":
     main()
