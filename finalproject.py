@@ -59,23 +59,6 @@ def get_data_to_databse(cur,conn,data_list):
     conn.commit()
     
 
-#VOO Calculation
-#SWITCH 410 TO THE {AVG_CLOSE} VARIABLE
-def find_average_volume_from_high_price_low_price(cur,conn):
-    #Finds the average Closing price for the voo
-    cur.execute("""SELECT AVG(close) FROM voo""")
-    avg_close = cur.fetchall()
-
-    #Finds the average volume for when price is below the average closing price
-    cur.execute("""SELECT AVG(volume) FROM voo WHERE close > '{avg_close}' """)
-    avg_volume_above = cur.fetchall()
-    print(avg_volume_above)
-
-    #Finds the average volume for when price is above the average closing price 
-    cur.execute("""SELECT AVG(volume) FROM voo WHERE close < '{avg_close}' """)
-    avg_volume_below = cur.fetchall()
-    print(avg_volume_below)
-    
   
 #VOO boxplot
 def visualizations_voo(cur,conn):
@@ -84,11 +67,11 @@ def visualizations_voo(cur,conn):
     avg_close = cur.fetchall()
 
     #Finds the volume for when price is below the average closing price
-    cur.execute("""SELECT volume FROM voo WHERE close > '{avg_close}' """)
+    cur.execute(f"""SELECT volume FROM voo WHERE close > {avg_close} """)
     volume_above2 = cur.fetchall()
 
     #Finds the volume for when price is above the average closing price 
-    cur.execute("""SELECT volume FROM voo WHERE close < '{avg_close}' """)
+    cur.execute(f"""SELECT volume FROM voo WHERE close < {avg_close} """)
     volume_below2 = cur.fetchall()
 
     volume_above = []
@@ -156,19 +139,17 @@ def put_data_in_database(cur, conn, response):
 
 def wsbdata(cur, conn):
     cur.execute('SELECT wsbtoday.name, wsbmonthago.comments, wsbtoday.comments FROM wsbmonthago JOIN wsbtoday ON wsbmonthago.name = wsbtoday.name')
-    sentimentscore = cur.fetchall()
+    comments = cur.fetchall()
     print('wsb1')
-    print(sentimentscore)
+    print(comments)
+    return comments
 
-
-
-#getting the names of stocks that were bullish 1 month ago
+#getting the sentiment score of stocks today vs 1 month ago
 def wsbdata2(cur, conn):
-    cur.execute('SELECT wsbmonthago.name FROM wsbmonthago WHERE sentimentscore > 0')
-    data = cur.fetchall()
+    cur.execute('SELECT name, sentimentscore FROM wsbtoday ORDER BY sentimentscore DESC')
+    bullish_lastmonth = cur.fetchall()
     print("Stocks that were bullish 1 month ago in WSB")
-    print(data)
-    print()
+    return bullish_lastmonth
 
 
 
@@ -176,7 +157,7 @@ def hotstockdata(cur, conn):
     cur.execute("""SELECT hotstocks.rating, hotstocks.percentchangemonth FROM hotstocks WHERE rating LIKE '%Buy%'""")
     data_buy = cur.fetchall()
     print("hotstocks")
-    print(data_buy)
+    return data_buy
 
 def voodata(cur, conn):
     cur.execute("""SELECT AVG(close) FROM voo""")
@@ -185,23 +166,110 @@ def voodata(cur, conn):
     print(avg_close)
 
     #Finds the volume for when price is below the average closing price
-    cur.execute(f"""SELECT volume FROM voo WHERE close > {avg_close} """)
+    cur.execute(f"""SELECT AVG(volume) FROM voo WHERE close > {avg_close} """)
     volume_above2 = cur.fetchall()
     print(volume_above2)
 
     #Finds the volume for when price is above the average closing price 
-    cur.execute(f"""SELECT volume, close FROM voo WHERE close < {avg_close} """)
+    cur.execute(f"""SELECT AVG(volume) FROM voo WHERE close < {avg_close} """)
     volume_below2 = cur.fetchall()
     print(volume_below2)
+    diff_vol = volume_above2[0][0] - volume_below2[0][0]
+    vollist = []
+    vollist.append(diff_vol)
+    return vollist
+
+#WRITING CSVs
 
 
-def write_csv(data_dict, file_name):
+def write_csv(datalist, file_name):
     path = os.path.dirname(os.path.abspath(__file__))
     f = open(path + "/" + file_name, "w")
-    f.write("""We are able to use SQL select statements to calculate important indicators of VOO (Vanguard 500).The indicator we 
-    where able to calculate was the volume traded when the price was below and above the average closing price. We were able to calculate the average volume for when the price was 
-    below the average closing price, and calculate the average volume when the price was above the average closing price. When doing """)
+    f.write("Number of comments for stocks a month ago and today")
+    f.write('\n')
+    f.write("Ticker, Comments a month ago, Comments today\n")
+    for i in datalist:
+        temp = i[0] + ", " +str(i[1]) + ", " + str(i[2])
+        f.write(temp)
+        f.write('\n')
+    f.close()
     
+
+
+def write_csv_hot_stocks(datalist, file_name):
+    path = os.path.dirname(os.path.abspath(__file__))
+    f = open(path + "/" + file_name, "w")
+    f.write("""Average percent change of stocks over a month with 'buy' ratings""" )
+    f.write('\n')
+    f.write('Analyst Rating, Percent Change\n')
+    total = 0
+    for i in datalist:
+        temp = i[0] + ", " + i[1]
+        total += float(i[1])
+        f.write(temp)
+        f.write('\n')
+    f.write("average: " + str(total/len(datalist)))
+    f.close()
+
+def wsb_sentimentchange(datalist, file_name):
+    path = os.path.dirname(os.path.abspath(__file__))
+    f = open(path + "/" + file_name, "w")
+    print("I'm here ---------------_**********")
+    print(datalist)
+    f.write("The sentiment of WSB stocks today")
+    f.write('\n')
+    f.write("Ticker, Sentiment\n")
+    for i in datalist:
+        temp = i[0] + ", " + str(i[1])
+        f.write(temp)
+        f.write('\n')
+    f.close()
+
+def voo_volumedifference(datalist, file_name):
+    path = os.path.dirname(os.path.abspath(__file__))
+    f = open(path + "/" + file_name, "w")
+    f.write("The difference in volumes between the average volume above the average closing price and the average volume below the average closing price")
+    f.write('\n')
+    for i in datalist:
+        f.write(str(i))
+        f.write('\n')
+    f.close()
+
+
+
+#VISUALIZATIONS
+
+#comments visualization
+def data2vis(csvfile):
+    labels = []
+    month = []
+    today = []
+    for row in csvfile[2:]:
+        val = row.split(",").strip()
+        labels.append(val[0])
+    labels = ['G1', 'G2', 'G3', 'G4', 'G5']
+    men_means = [20, 34, 30, 35, 27]
+    women_means = [25, 32, 34, 20, 25]
+
+    x = np.arange(len(labels))  # the label locations
+    width = 0.35  # the width of the bars
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(x - width/2, men_means, width, label='Men')
+    rects2 = ax.bar(x + width/2, women_means, width, label='Women')
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel('Scores')
+    ax.set_title('Scores by group and gender')
+    ax.set_xticks(x, labels)
+    ax.legend()
+
+    ax.bar_label(rects1, padding=3)
+    ax.bar_label(rects2, padding=3)
+
+    fig.tight_layout()
+
+    plt.show()
 
 
 def main():
@@ -231,9 +299,19 @@ def main():
 
 
     #calling the data
-    hotstockdata(cur,conn)
-    wsbdata2(cur,conn)
-    wsbdata(cur, conn)
-    voodata(cur,conn)
+    data1 = hotstockdata(cur,conn)
+    data2 = wsbdata2(cur,conn)
+    #writing the wsbdata2 to a csv file that contains the tickers of stocks that were bullish 1 month ago
+    data3 = wsbdata(cur, conn)
+    data4 = voodata(cur,conn)
+    write_csv(data3, 'data3.csv')
+    wsb_sentimentchange(data2, 'data2.csv')
+    write_csv_hot_stocks(data1, 'data1.csv')
+    voo_volumedifference(data4, 'data4.csv')
+
+    #calling the visualizations
+    
+
+
 if __name__ == "__main__":
     main()
