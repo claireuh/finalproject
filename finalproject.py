@@ -12,17 +12,16 @@ from xml.sax import parseString
 
 
 
-#Creating the Database
+
 def setUpDatabase(db_name):
+    '''Set up the Database for use throughout the whole program'''
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path+'/'+db_name)
     cur = conn.cursor()
     return cur, conn
 
 
-#WallStreetBets API
-
-#Making a request 
+#wallstreetbets api
 def get_reddit_stocks(date):
     url = f'https://tradestie.com/api/v1/apps/reddit?date={date}'
     response = requests.get(url)
@@ -30,7 +29,6 @@ def get_reddit_stocks(date):
     data_list = json.loads(data)
     return data_list[:25]
 
-#Creating a table and inserting the data
 def wsb_into_db(cur, conn, list, name):
     cur.execute(f"CREATE TABLE IF NOT EXISTS {name} (name TEXT UNIQUE, sentiment TEXT, sentimentscore INTEGER, comments INTEGER)")
     for s in list:
@@ -40,8 +38,8 @@ def wsb_into_db(cur, conn, list, name):
 
 #S&P api
 
-#Access key: 5dbe879de68dbe57111390b991d08988
-#Making a request
+#5dbe879de68dbe57111390b991d08988
+
 def get_sstock():
     url = 'http://api.marketstack.com/v1/eod?access_key=5dbe879de68dbe57111390b991d08988&symbols=VOO&limit=25'
     response = requests.get(url)
@@ -54,7 +52,7 @@ def get_sstock():
 #Volume
 #Date
 
-#Inserting data into table
+
 def get_data_to_databse(cur,conn,data_list):
     cur.execute("CREATE TABLE IF NOT EXISTS voo (open REAL, close REAL, volume INTEGER, date TEXT)")
     for i in data_list['data']:
@@ -69,7 +67,7 @@ def get_data_to_databse(cur,conn,data_list):
 #price_change_percent_1m
 #symbol
 
-#Making a request
+
 def hotstocks():
     url = "https://hotstoks-sql-finance.p.rapidapi.com/query"
     
@@ -89,7 +87,7 @@ def hotstocks():
     response = response.text
     response = json.loads(response)
     return response
-#Inserting data into a table
+
 def put_data_in_database(cur, conn, response):
     cur.execute("CREATE TABLE IF NOT EXISTS hotstocks (rating TEXT, percentchangeday TEXT, percentchangemonth TEXT, symbol TEXT UNIQUE)")
     for i in response['results']:
@@ -98,27 +96,27 @@ def put_data_in_database(cur, conn, response):
     
 #EXTRACTING DATA FROM DATABASE
 
-#Selecting number of comments data
 def wsbdata(cur, conn):
     cur.execute('SELECT wsbtoday.name, wsbmonthago.comments, wsbtoday.comments FROM wsbmonthago JOIN wsbtoday ON wsbmonthago.name = wsbtoday.name')
     comments = cur.fetchall()
     # print('wsb1')
     return comments
 
-#getting the sentiment score of stocks today
+#getting the sentiment score of stocks today vs 1 month ago
 def wsbdata2(cur, conn):
     cur.execute('SELECT name, sentimentscore FROM wsbtoday ORDER BY sentimentscore DESC')
-    sentimentscores = cur.fetchall()
-    return sentimentscores
+    bullish_lastmonth = cur.fetchall()
+    # print("Stocks that were bullish 1 month ago in WSB")
+    return bullish_lastmonth
 
-#getting percent change in a month from stocks that have 'Buy' in their rating
+
+
 def hotstockdata(cur, conn):
     cur.execute("""SELECT hotstocks.rating, hotstocks.percentchangemonth FROM hotstocks WHERE rating LIKE '%Buy%'""")
     data_buy = cur.fetchall()
     # print("hotstocks")
     return data_buy
 
-#getting volumes for stocks w closing price above and below average
 def voodata(cur, conn):
     cur.execute("""SELECT AVG(close) FROM voo""")
     avg_close = cur.fetchall()
@@ -137,11 +135,10 @@ def voodata(cur, conn):
     combinedlist.append(volume_below2)
     return combinedlist
 
-
 #WRITING CSVs
 
-#csv for wsb number of comments
-def write_csv_wsb_comments(datalist, file_name):
+
+def write_csv(datalist, file_name):
     path = os.path.dirname(os.path.abspath(__file__))
     f = open(path + "/" + file_name, "w")
     f.write("Number of comments for stocks a month ago and today")
@@ -154,7 +151,7 @@ def write_csv_wsb_comments(datalist, file_name):
     f.close()
     
 
-#csv for 'Buy' rating percent change
+
 def write_csv_hot_stocks(datalist, file_name):
     path = os.path.dirname(os.path.abspath(__file__))
     f = open(path + "/" + file_name, "w")
@@ -170,7 +167,6 @@ def write_csv_hot_stocks(datalist, file_name):
     f.write("average: " + str(total/len(datalist)))
     f.close()
 
-#csv for wsb sentiment score
 def wsb_sentimentchange(datalist, file_name):
     path = os.path.dirname(os.path.abspath(__file__))
     f = open(path + "/" + file_name, "w")
@@ -184,14 +180,14 @@ def wsb_sentimentchange(datalist, file_name):
         f.write('\n')
     f.close()
 
-#csv for volumes above and below average closing price
 def voo_volume(datalist, file_name):
     path = os.path.dirname(os.path.abspath(__file__))
     f = open(path + "/" + file_name, "w")
     f.write("volumes when price is below and above average closing price\n")
     f.write('Volumes above average,Volumes below average\n')
-    for i in range(len(datalist[1])):
-        f.write(str(datalist[0][i][0]) + "," + str(datalist[1][i][0]))
+    for i in range(len(datalist[1])): 
+        temp = str(datalist[0][i][0]) + "," + str(datalist[1][i][0])
+        f.write(temp)
         f.write('\n')
     f.close()
 
@@ -199,7 +195,7 @@ def voo_volume(datalist, file_name):
 
 #VISUALIZATIONS
 
-#wsb number of comments visualization double barchart
+#data 3 (comments) visualization
 def data3vis(csvfile):
     f = open(os.path.abspath(os.path.join(os.path.dirname(__file__), csvfile)))
     lines = f.readlines()
@@ -234,7 +230,7 @@ def data3vis(csvfile):
     plt.show()
 
 
-#wsb sentiment score visualization barchart:
+#data 2 visualization barchart:
 def data2vis(csvfile):
     f = open(os.path.abspath(os.path.join(os.path.dirname(__file__), csvfile)))
     lines = f.readlines()
@@ -253,7 +249,7 @@ def data2vis(csvfile):
     plt.tight_layout()
     plt.show()
 
-#VOO volumes above and below average closing price boxplot
+#VOO boxplot
 def visualizations_voo(cur,conn):
     #Finds the average Closing price for the voo
     cur.execute("""SELECT AVG(close) FROM voo""")
@@ -295,7 +291,7 @@ def visualizations_voo(cur,conn):
 
 
 
-# Hot Stocks Visualization- double boxplot for percent change in a month for 'Buy' and 'Hold ratings
+# Hot Stocks Visualizatoin
 def hot_stock_vis(cur,conn):
     cur.execute("""SELECT hotstocks.rating, hotstocks.percentchangemonth FROM hotstocks WHERE rating LIKE '%Buy%'""")
     data_buy = cur.fetchall()
@@ -327,7 +323,7 @@ def hot_stock_vis(cur,conn):
     # show plot
     plt.show()
 
-# Hot Stocks Visualization2- double boxplot for percent change in a day for 'Buy' and 'Hold ratings
+# Hot Stocks Visualizatoin2
 def hot_stock_vis2(cur,conn):
     cur.execute("""SELECT hotstocks.rating, hotstocks.percentchangeday FROM hotstocks WHERE rating LIKE '%Buy%'""")
     data_buy = cur.fetchall()
@@ -388,16 +384,16 @@ def main():
     data4 = voodata(cur,conn)
     
     #writing data to a csv file
-    write_csv_wsb_comments(data3, 'data3.csv')
-    wsb_sentimentchange(data2, 'data2.csv')
-    write_csv_hot_stocks(data1, 'data1.csv')
-    voo_volume(data4, 'data4.csv')
+    write_csv(data3, 'wsbcomments.csv')
+    wsb_sentimentchange(data2, 'wsbsentiment.csv')
+    write_csv_hot_stocks(data1, 'hotstocks.csv')
+    voo_volume(data4, 'voovolume.csv')
 
     #calling the visualizations
-    hot_stock_vis(cur,conn)
-    data2vis('data2.csv')
-    data3vis('data3.csv')
+    data3vis('wsbcomments.csv')
     visualizations_voo(cur,conn)
+    hot_stock_vis(cur,conn)
+    data2vis('wsbsentiment.csv')
     hot_stock_vis2(cur,conn)
 
 
