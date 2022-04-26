@@ -55,7 +55,7 @@ def get_sstock():
 def get_data_to_databse(cur,conn,data_list):
     cur.execute("CREATE TABLE IF NOT EXISTS voo (open REAL, close REAL, volume INTEGER, date TEXT)")
     for i in data_list['data']:
-        cur.execute("INSERT OR IGNORE INTO voo (open,close,volume,date) VALUES (?,?,?,?)",(i['symbol'],i['open'],i['close'],i['volume'],i['date']))
+        cur.execute("INSERT OR IGNORE INTO voo (open,close,volume,date) VALUES (?,?,?,?)",(i['open'],i['close'],i['volume'],i['date']))
     conn.commit()
     
 
@@ -366,13 +366,11 @@ def main():
     
     
     # voo data
-    # data_list = get_sstock()
-    # get_data_to_databse(cur,conn,data_list)
-    # print(find_average_volume_from_high_price_low_price(cur,conn))
-    # print(visualizations_voo(cur,conn))
+    data_list = get_sstock()
+    get_data_to_databse(cur,conn,data_list)
+
 
     #hotstocks data
-    cur.execute("DROP TABLE IF EXISTS hotstocks")
     response = hotstocks()
     put_data_in_database(cur, conn, response)
 
