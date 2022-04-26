@@ -14,6 +14,7 @@ from xml.sax import parseString
 
 
 def setUpDatabase(db_name):
+    '''Set up the Database for use throughout the whole program'''
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path+'/'+db_name)
     cur = conn.cursor()
@@ -184,8 +185,9 @@ def voo_volume(datalist, file_name):
     f = open(path + "/" + file_name, "w")
     f.write("volumes when price is below and above average closing price\n")
     f.write('Volumes above average,Volumes below average\n')
-    for i in range(len(datalist[0])):
-        f.write(str(datalist[0][i][0]) + "," + str(datalist[1][i][0]))
+    for i in range(len(datalist[0])): 
+        temp = str(datalist[0][i][0]) + "," + str(datalist[1][i][0])
+        f.write(temp)
         f.write('\n')
     f.close()
 
@@ -382,10 +384,10 @@ def main():
     data4 = voodata(cur,conn)
     
     #writing data to a csv file
-    write_csv(data3, 'data3.csv')
-    wsb_sentimentchange(data2, 'data2.csv')
-    write_csv_hot_stocks(data1, 'data1.csv')
-    voo_volume(data4, 'data4.csv')
+    write_csv(data3, 'wsbcomments.csv')
+    wsb_sentimentchange(data2, 'wsbsentiment.csv')
+    write_csv_hot_stocks(data1, 'hotstocks.csv')
+    voo_volume(data4, 'voovolume.csv')
 
     #calling the visualizations
     data3vis('data3.csv')
